@@ -1,6 +1,7 @@
 import { MurderProfile } from "@/data/murderProfiles";
 import { RobberyProfile } from "@/data/robberyProfiles";
 import { BurglaryProfile } from "@/data/burglaryProfiles";
+import { PettyTheftProfile } from "@/data/pettyTheftProfiles";
 
 export interface ScoringWeights {
   physical: {
@@ -65,7 +66,7 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   },
 };
 
-type Suspect = MurderProfile | RobberyProfile | BurglaryProfile;
+type Suspect = MurderProfile | RobberyProfile | BurglaryProfile | PettyTheftProfile;
 
 export interface ScoreBreakdown {
   physical: {
@@ -114,7 +115,6 @@ export class SuspectScorer {
     let totalScore = 0;
     let maxPossibleScore = 0;
 
-    // Calculate physical and demographic scores
     criteria.forEach(criterion => {
       const { category, value } = criterion;
       let score = 0;
@@ -163,7 +163,6 @@ export class SuspectScorer {
       maxPossibleScore += maxScore;
     });
 
-    // Convert to percentage
     return maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0;
   }
 
@@ -172,18 +171,14 @@ export class SuspectScorer {
       ? suspect.physicalDescription.height
       : suspect.details.physicalDescription.height;
 
-    // Exact match
     if (suspectHeight === targetHeight) {
       return this.weights.physical.height;
     }
 
-    // Calculate height difference in inches
     const suspectInches = this.heightToInches(suspectHeight);
     const targetInches = this.heightToInches(targetHeight);
     const difference = Math.abs(suspectInches - targetInches);
 
-    // Within 2 inches = 60% score
-    // Within 4 inches = 30% score
     if (difference <= 2) {
       return this.weights.physical.height * 0.6;
     } else if (difference <= 4) {
@@ -202,7 +197,6 @@ export class SuspectScorer {
       return this.weights.physical.build;
     }
 
-    // Similar builds get partial scores
     const similarBuilds = {
       'athletic': ['medium'],
       'medium': ['athletic', 'large'],
@@ -246,24 +240,20 @@ export class SuspectScorer {
       ? suspect.age
       : suspect.details.age;
 
-    // Handle age ranges (e.g., "20-30")
     if (targetAge.includes('-')) {
       const [minAge, maxAge] = targetAge.split('-').map(Number);
       if (suspectAge >= minAge && suspectAge <= maxAge) {
         return this.weights.demographics.age;
       }
-      // Partial score for being close to range
       const buffer = 5;
       if (suspectAge >= minAge - buffer && suspectAge <= maxAge + buffer) {
         return this.weights.demographics.age * 0.5;
       }
     } else {
-      // Exact age match
       const age = parseInt(targetAge);
       if (suspectAge === age) {
         return this.weights.demographics.age;
       }
-      // Partial score for being within 5 years
       if (Math.abs(suspectAge - age) <= 5) {
         return this.weights.demographics.age * 0.5;
       }
@@ -293,7 +283,6 @@ export class SuspectScorer {
       return this.weights.modusOperandi.locationType;
     }
 
-    // Similar location types get partial scores
     const similarLocations = {
       'residential': ['house', 'apartment', 'home'],
       'commercial': ['store', 'office', 'business'],
@@ -311,19 +300,34 @@ export class SuspectScorer {
   }
 
   private calculateWeaponScore(suspect: Suspect, targetWeapon: string): number {
-    const suspectWeapon = 'priorConvictions' in suspect
-      ? suspect.modusOperandi.toolsWeaponsUsed.toLowerCase()
-      : suspect.details.modusOperandi.weaponUsed.toLowerCase();
+    let suspectWeapon = '';
+
+    if ('priorConvictions' in suspect) {
+      // Murder profile
+      suspectWeapon = suspect.modusOperandi.toolsWeaponsUsed.toLowerCase();
+    } else if ('details' in suspect) {
+      const modusOperandi = suspect.details.modusOperandi;
+      // Check if it's a petty theft profile by checking for concealmentMethod
+      if ('concealmentMethod' in modusOperandi) {
+        suspectWeapon = modusOperandi.concealmentMethod.toLowerCase();
+      } else if ('weaponUsed' in modusOperandi) {
+        suspectWeapon = modusOperandi.weaponUsed.toLowerCase();
+      }
+    }
+
+    if (!suspectWeapon) {
+      return 0;
+    }
 
     if (suspectWeapon.includes(targetWeapon.toLowerCase())) {
       return this.weights.modusOperandi.weapons;
     }
 
-    // Similar weapons get partial scores
     const similarWeapons = {
       'gun': ['firearm', 'pistol', 'rifle'],
       'knife': ['blade', 'dagger', 'sharp object'],
-      'blunt': ['bat', 'club', 'pipe']
+      'blunt': ['bat', 'club', 'pipe'],
+      'concealment': ['pocket', 'bag', 'jacket', 'clothing']
     };
 
     for (const [key, values] of Object.entries(similarWeapons)) {
@@ -345,7 +349,6 @@ export class SuspectScorer {
       return this.weights.targeting.victimType;
     }
 
-    // Similar motives get partial scores
     const similarMotives = {
       'financial': ['money', 'gain', 'profit'],
       'revenge': ['vengeance', 'retaliation', 'payback'],

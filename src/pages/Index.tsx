@@ -2,17 +2,18 @@ import { useState, useRef } from "react";
 import { CrimeTypeSelect } from "@/components/CrimeTypeSelect";
 import { QuestionInterface } from "@/components/QuestionInterface";
 import { SuspectResults } from "@/components/SuspectResults";
+import PettyTheftPrediction from "@/components/PettyTheftPrediction";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { mockDatabase } from "@/data/mockDatabase";
-import { CrimeProfile } from "@/data/mockDatabase";
-import { MurderProfile } from "@/data/murderProfiles";
-import { RobberyProfile } from "@/data/robberyProfiles";
-import { Search, FileQuestion } from "lucide-react";
+import type { CrimeProfile } from "@/data/mockDatabase";
+import type { MurderProfile } from "@/data/murderProfiles";
+import type { RobberyProfile } from "@/data/robberyProfiles";
+import { Search, FileQuestion, BarChart } from "lucide-react";
 import { TagSearch } from "@/components/TagSearch";
 
-type SearchMode = "quick" | "tags" | null;
+type SearchMode = "quick" | "tags" | "predict" | null;
 
 const Index = () => {
   const [searchMode, setSearchMode] = useState<SearchMode>(null);
@@ -109,7 +110,7 @@ const Index = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             <Card 
               className="p-6 cursor-pointer transition-all hover:border-primary"
               onClick={() => setSearchMode("quick")}
@@ -139,6 +140,21 @@ const Index = () => {
                 Use specific tags to find suspects matching exact criteria
               </p>
             </Card>
+
+            <Card 
+              className="p-6 cursor-pointer transition-all hover:border-primary"
+              onClick={() => setSearchMode("predict")}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <BarChart className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold">Predictive Analysis</h3>
+              </div>
+              <p className="text-muted-foreground">
+                Use advanced algorithms to predict potential criminal activity patterns
+              </p>
+            </Card>
           </div>
         </div>
       </div>
@@ -151,18 +167,29 @@ const Index = () => {
         <div className="text-center mb-12 space-y-4">
           <Badge variant="outline" className="mb-4">Suspect Identification System</Badge>
           <h1 className="text-4xl font-bold tracking-tight">
-            Identify Potential Suspects
+            {searchMode === "predict" ? "Predictive Analysis" : "Identify Potential Suspects"}
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             {searchMode === "quick" 
               ? "Answer a series of questions about the incident to help identify potential suspects based on patterns and historical data."
-              : "Search for suspects using specific tags and criteria."
+              : searchMode === "tags"
+              ? "Search for suspects using specific tags and criteria."
+              : "Analyze patterns and predict potential criminal activities using advanced algorithms."
             }
           </p>
         </div>
 
         <div className="space-y-8">
-          {searchMode === "quick" ? (
+          {searchMode === "predict" ? (
+            <>
+              <PettyTheftPrediction />
+              <div className="mt-8 text-center">
+                <Button onClick={handleReset} variant="outline" size="lg">
+                  Back to Search Methods
+                </Button>
+              </div>
+            </>
+          ) : searchMode === "quick" ? (
             <>
               {!showQuestions && (
                 <CrimeTypeSelect onSelect={handleCrimeSelect} />
